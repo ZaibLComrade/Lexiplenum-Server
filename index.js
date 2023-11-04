@@ -2,7 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config() // use enviromnent variables
 
 // Database uri string
@@ -33,6 +33,35 @@ const categoryCollection = database.collection("categories");
 app.get("/books", async(req, res) => {
 	const books = await booksCollection.find().toArray();
 	res.send(books);
+})
+
+app.post("/books", async(req, res) => {
+	const newBook = req.body;
+	const result = await booksCollection.insertOne(newBook);
+	res.send(result);
+})
+
+app.put("/books", async(req, res) => {
+	const updatedBook = req.body;
+	const filter = { _id: new ObjectId(req.params.id) }
+	const update = {
+		$set: {
+			image: null,
+			title: null,
+			category: null,
+			quantity: null,
+			rating: null,
+			description: null,
+		}
+	}
+	const result = await booksCollection.updateOne(filter, update)
+	res.send(result);
+})
+
+app.delete("/books", async(req, res) => {
+	const filter = { _id: new ObjectId(req.params.id) };
+	const result = await booksCollection.deleteOne(filter)
+	res.send(result);
 })
 
 // async function runDB() {
