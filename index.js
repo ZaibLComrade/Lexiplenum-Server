@@ -29,6 +29,11 @@ const usersCollection = database.collection("users");
 const booksCollection = database.collection("books");
 const categoryCollection = database.collection("categories");
 
+// CRUD operation APIs for books
+app.get("/books", async(req, res) => {
+	const books = await booksCollection.find().toArray();
+	res.send(books);
+})
 
 // async function runDB() {
 //   try {
