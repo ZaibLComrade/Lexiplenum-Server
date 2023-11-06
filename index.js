@@ -37,6 +37,7 @@ app.use(cors({
 // 	  const categories = await categoryCollection.find().toArray();
 // 	  const users = await usersCollection.find().toArray();
 
+
 // 	  console.log(users, categories, books);
 
 //     // Send a ping to confirm a successful connection
@@ -63,6 +64,13 @@ app.get("/books/categories", async(req, res) => {
 // CRUD operation APIs for books
 app.get("/books", async(req, res) => {
 	const books = await booksCollection.find().toArray();
+	res.send(books);
+})
+
+app.get("/books/:category", async(req, res) => {
+	const category = req.params.category;
+	const query = { category }
+	const books = await booksCollection.find(query).toArray();
 	res.send(books);
 })
 
@@ -103,7 +111,7 @@ app.post("/users", async(req, res) => {
 	res.send(result)
 })
 
-app.patch("/users/:email", async(req, res) => {
+app.put("/users/:email", async(req, res) => {
 	const email = req.params.email;
 	const newUser = req.body;
 	const filter = { email };
