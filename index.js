@@ -56,9 +56,19 @@ const booksCollection = database.collection("books");
 const categoryCollection = database.collection("categories");
 
 // Book categories API
-app.get("/books/categories", async(req, res) => {
+app.get("/categories", async(req, res) => {
 	const categories = await categoryCollection.find().toArray();
 	res.send(categories);
+})
+
+// Get category name by id
+app.get("/categories/:id", async(req, res) => {
+	const id = req.params.id;
+	if(id === "all") return;
+	const query = { id: parseInt(id) };
+	const category = await categoryCollection.findOne(query);
+	const name = category.category;
+	res.send(name);
 })
 
 // CRUD operation APIs for books
@@ -67,10 +77,23 @@ app.get("/books", async(req, res) => {
 	res.send(books);
 })
 
+app.get("/books/borrowed", async(req, res) => {
+	const email = req.query.email;
+	const user = await usersCollection.findOne({ email })
+	const borrowedArr = user.borrowed;
+	const borrowedId = borrowedArr.map(id => new ObjectId(id))
+	console.log(borrowedId);
+	
+	const filter = { _id: { $in: borrowedId } }
+	const borrowedBooks = await booksCollection.find(filter).toArray();
+	console.log(borrowedBooks);
+	res.send(borrowedBooks)
+})
+
 app.get("/books/:category", async(req, res) => {
 	const category = req.params.category;
-	const query = { category }
-	const books = await booksCollection.find(query).toArray();
+	const filter = { category: parseInt(category) }
+	const books = await booksCollection.find(filter).toArray();
 	res.send(books);
 })
 
@@ -105,6 +128,13 @@ app.delete("/books", async(req, res) => {
 })
 
 // Users APIs
+app.get("/users", async(req, res) => {
+	const email = req.query.email;
+	const query = { email }
+	const userData = await usersCollection.findOne(query);
+	res.send(userData);
+})
+
 app.post("/users", async(req, res) => {
 	const newUser = req.body;
 	const result = await usersCollection.insertOne(newUser);
