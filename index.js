@@ -103,10 +103,15 @@ app.post("/users", async(req, res) => {
 	res.send(result)
 })
 
-// test APIs
-app.get("/users/:email", (req, res) => {
-	console.log(req.params.email);
-	res.send("Hit");
+app.patch("/users/:email", async(req, res) => {
+	const email = req.params.email;
+	const newUser = req.body;
+	const filter = { email };
+	const update = {
+		$set: newUser,
+	}
+	const result = await usersCollection.updateOne(filter, update, {upsert: true});
+	res.send(result);
 })
 
 // Root (test)
