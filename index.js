@@ -1,5 +1,7 @@
 // Modules
 const express = require('express');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -27,6 +29,7 @@ app.use(cors({
 	origin: ["http://localhost:5173"],
 	credentials: true,
 })); // to exchange data between cross origins
+app.use(cookieParser());
 
 // async function runDB() {
 //   try {
@@ -55,6 +58,10 @@ const usersCollection = database.collection("users");
 const booksCollection = database.collection("books");
 const categoryCollection = database.collection("categories");
 
+app.get("/jwt", async(req, res) => {
+	
+})
+
 // Book categories API
 app.get("/categories", async(req, res) => {
 	const categories = await categoryCollection.find().toArray();
@@ -72,6 +79,13 @@ app.get("/categories/:id", async(req, res) => {
 })
 
 // CRUD operation APIs for books
+app.get("/book/:id", async(req, res) => {
+	const id = req.params.id;
+	const query = { _id: new ObjectId(id) };
+	const book = await booksCollection.findOne(query);
+	res.send(book);
+})
+
 app.get("/books", async(req, res) => {
 	const books = await booksCollection.find().toArray();
 	res.send(books);
@@ -82,11 +96,9 @@ app.get("/books/borrowed", async(req, res) => {
 	const user = await usersCollection.findOne({ email })
 	const borrowedArr = user.borrowed;
 	const borrowedId = borrowedArr.map(id => new ObjectId(id))
-	console.log(borrowedId);
 	
 	const filter = { _id: { $in: borrowedId } }
 	const borrowedBooks = await booksCollection.find(filter).toArray();
-	console.log(borrowedBooks);
 	res.send(borrowedBooks)
 })
 
@@ -99,7 +111,6 @@ app.get("/books/:category", async(req, res) => {
 
 app.post("/books", async(req, res) => {
 	const newBook = req.body;
-	console.log(newBook)
 	const result = await booksCollection.insertOne(newBook);
 	res.send(result);
 })
@@ -149,6 +160,24 @@ app.put("/users/:email", async(req, res) => {
 		$set: newUser,
 	}
 	const result = await usersCollection.updateOne(filter, update, {upsert: true});
+	res.send(result);
+})
+
+app.patch("/users/borrow", async(req, res) => {
+	const id = req.query.id;
+	const email = req.query.email;
+	const bookInfo = { id, ...req.body };
+	
+	const filter = { email };
+	const update = {
+		$addToSet: { borrowed: bookInfo }
+	}
+	const result = await usersCollection.updateOne(filter, update)
+	if(result.modifiedCount) {
+		const query = { _id: new ObjectId(id) }
+		const modification ={ $inc: { quantity: -1 } }
+		const reduced = booksCollection.updateOne(query, modification);
+	}
 	res.send(result);
 })
 
