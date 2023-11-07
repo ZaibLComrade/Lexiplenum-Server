@@ -155,10 +155,13 @@ app.post("/users", async(req, res) => {
 app.put("/users/:email", async(req, res) => {
 	const email = req.params.email;
 	const newUser = req.body;
+	const userExists = await usersCollection.findOne({ email });
+	
+	const { lastSignInTime } = newUser;
+	let update = { $set: newUser }
+	if(userExists) update = { $set: { lastSignInTime } }
+	
 	const filter = { email };
-	const update = {
-		$set: newUser,
-	}
 	const result = await usersCollection.updateOne(filter, update, {upsert: true});
 	res.send(result);
 })
