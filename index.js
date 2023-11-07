@@ -31,6 +31,18 @@ app.use(cors({
 })); // to exchange data between cross origins
 app.use(cookieParser());
 
+const verifyToken = (req, res, next) => {
+	const token = req.cookies?.token;
+	if(!token) {
+		res.status(401).send({ message: "unauthorized" });
+	}
+	jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+		if(err) return res.status(401).send({ message: "unauthorized" });
+		req.user = decoded;
+		next();
+	})
+}
+
 // async function runDB() {
 //   try {
 //     // Connect the client to the server	(optional starting in v4.7)
@@ -58,9 +70,22 @@ const usersCollection = database.collection("users");
 const booksCollection = database.collection("books");
 const categoryCollection = database.collection("categories");
 
-app.get("/jwt", async(req, res) => {
-	
+// Secure APIs
+app.post("/jwt", async(req, res) => {
+	const method = req.query.method;
+	const userCred = req.body;
+	const token = jwt.sign(userCred, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" })
+	if(method === "login") {
+		res.cookie("token", token, {
+			httpOnly: true,
+			secure: true,
+			sameSite: "none",
+		}).send({ success: true })
+	} else if(method === "logout") {
+		res.clearCookie("token", { maxAge: 0 }).send({ success: true })
+	}
 })
+
 
 // Book categories API
 app.get("/categories", async(req, res) => {
@@ -86,13 +111,27 @@ app.get("/book/:id", async(req, res) => {
 	res.send(book);
 })
 
+app.put("/book/:id", async(req, res) => { // Update book
+	const id = req.params.id;
+	const updatedBook = req.body;
+	const query = { _id: new ObjectId(id) };
+	const update = { $set: updatedBook };
+	const result = await booksCollection.updateOne(query, update);
+	res.send(result);
+}) 
+
 app.get("/books", async(req, res) => {
 	const books = await booksCollection.find().toArray();
 	res.send(books);
 })
 
-app.get("/books/borrowed", async(req, res) => {
+app.get("/books/borrowed", verifyToken, async(req, res) => {
 	const email = req.query.email;
+	// Verify User
+	if(email !== req.user.email) {
+		return res.status(401).send({ message: "unauthorized" })
+	}
+	
 	const user = await usersCollection.findOne({ email })
 	const borrowedArr = user.borrowed;
 	const borrowedId = borrowedArr.map(id => new ObjectId(id))
