@@ -69,6 +69,7 @@ const verifyToken = (req, res, next) => {
 const usersCollection = database.collection("users");
 const booksCollection = database.collection("books");
 const categoryCollection = database.collection("categories");
+const contentsCollection = database.collection("contents");
 
 // Secure APIs
 app.post("/jwt", async(req, res) => {
@@ -86,6 +87,16 @@ app.post("/jwt", async(req, res) => {
 	}
 })
 
+// Get books borrowed and return date
+app.get('/borrowed-dates', verifyToken, async(req, res) => {
+	const email = req.query.email;
+	if(email !== req.user.email) {
+		return res.status(401).send({ message: "unauthorized" })
+	}
+	const user = await usersCollection.findOne({ email })
+	const borrowedArr = user.borrowed
+	res.send(borrowedArr);
+})
 
 // Book categories API
 app.get("/categories", async(req, res) => {
@@ -103,6 +114,17 @@ app.get("/categories/:id", async(req, res) => {
 	res.send(name);
 })
 
+// Get book content using initial id
+app.get("/book/content", async(req, res) => {
+	const id = req.query.id;
+	const bookFilter = { _id: new ObjectId(id) };
+	const book = await booksCollection.findOne(bookFilter);
+	
+	const contentQuery = { title: book.title };
+	const content = await contentsCollection.findOne(contentQuery);
+	res.send(content);
+})
+
 // CRUD operation APIs for books
 app.get("/book/:id", async(req, res) => {
 	const id = req.params.id;
@@ -111,7 +133,7 @@ app.get("/book/:id", async(req, res) => {
 	res.send(book);
 })
 
-app.put("/book/:id", async(req, res) => { // Update book
+app.patch("/book/:id", async(req, res) => { // Update book
 	const id = req.params.id;
 	const updatedBook = req.body;
 	const query = { _id: new ObjectId(id) };
@@ -120,11 +142,18 @@ app.put("/book/:id", async(req, res) => { // Update book
 	res.send(result);
 }) 
 
-app.get("/books", async(req, res) => {
-	const books = await booksCollection.find().toArray();
+app.get("/books", verifyToken, async(req, res) => { // Get all books
+	const filter = req.query.filter;
+	if(req.query.email !== req.user.email) {
+		return res.status(401).send({ message: "unauthorized" })
+	}
+	let filt = {};
+	if(filter === "true") filt = { quantity: { $gt: 0 } }
+	const books = await booksCollection.find(filt).toArray();
 	res.send(books);
 })
 
+// Get user specific borrowed books
 app.get("/books/borrowed", verifyToken, async(req, res) => {
 	const email = req.query.email;
 	// Verify User
@@ -141,6 +170,7 @@ app.get("/books/borrowed", verifyToken, async(req, res) => {
 	res.send(borrowedBooks)
 })
 
+// Get books based on category
 app.get("/books/:category", async(req, res) => {
 	const category = req.params.category;
 	const filter = { category: parseInt(category) }
@@ -148,26 +178,12 @@ app.get("/books/:category", async(req, res) => {
 	res.send(books);
 })
 
-app.post("/books", async(req, res) => {
+app.post("/books", verifyToken, async(req, res) => { // Add a book
+	if(req.query.email !== req.user.email) {
+		return res.status(401).send({ message: "unauthorized" });
+	}
 	const newBook = req.body;
 	const result = await booksCollection.insertOne(newBook);
-	res.send(result);
-})
-
-app.put("/books", async(req, res) => {
-	const updatedBook = req.body;
-	const filter = { _id: new ObjectId(req.params.id) }
-	const update = {
-		$set: {
-			image: null,
-			title: null,
-			category: null,
-			quantity: null,
-			rating: null,
-			description: null,
-		}
-	}
-	const result = await booksCollection.updateOne(filter, update)
 	res.send(result);
 })
 
@@ -185,12 +201,14 @@ app.get("/users", async(req, res) => {
 	res.send(userData);
 })
 
+// Add a user
 app.post("/users", async(req, res) => {
 	const newUser = req.body;
 	const result = await usersCollection.insertOne(newUser);
 	res.send(result)
 })
 
+// Update or insert a user
 app.put("/users/:email", async(req, res) => {
 	const email = req.params.email;
 	const newUser = req.body;
@@ -205,6 +223,7 @@ app.put("/users/:email", async(req, res) => {
 	res.send(result);
 })
 
+// Borrow a book
 app.patch("/users/borrow", async(req, res) => {
 	const id = req.query.id;
 	const email = req.query.email;
@@ -221,6 +240,25 @@ app.patch("/users/borrow", async(req, res) => {
 		const reduced = booksCollection.updateOne(query, modification);
 	}
 	res.send(result);
+})
+
+//Return a book
+app.delete("/users/return", async(req, res) => {
+	const email = req.query.email;
+	const returnedBook = req.query.book_id;
+	const userQuery = { email };
+	const bookQuery = { _id: new ObjectId(returnedBook) }
+	const update = { 
+		$pull: { borrowed: { id: returnedBook  } },
+	};
+	const ret = await usersCollection.updateOne(userQuery, update)
+	
+	const bookUpdate = {
+		$inc: { quantity: 1 },
+	}
+	const bookReturned = await booksCollection.updateOne(bookQuery, bookUpdate);
+	
+	res.send(ret);
 })
 
 // Root (test)
