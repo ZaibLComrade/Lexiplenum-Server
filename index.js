@@ -26,7 +26,11 @@ const database = client.db('lexiplenum')
 // Middlewares
 app.use(express.json());
 app.use(cors({
-	origin: ["http://localhost:5173"],
+	origin: [
+		"http://localhost:5173",
+		"https://lexiplenum.web.app",
+		"https://lexiplenum.firebaseapp.com",
+	],
 	credentials: true,
 })); // to exchange data between cross origins
 app.use(cookieParser());
@@ -175,6 +179,7 @@ app.get("/books/:category", async(req, res) => {
 	const category = req.params.category;
 	const filter = { category: parseInt(category) }
 	const books = await booksCollection.find(filter).toArray();
+	console.log(books);
 	res.send(books);
 })
 
