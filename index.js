@@ -27,7 +27,7 @@ const database = client.db('lexiplenum')
 app.use(express.json());
 app.use(cors({
 	origin: [
-		"http://localhost:5173",
+		// "http://localhost:5173",
 		"https://lexiplenum.web.app",
 		"https://lexiplenum.firebaseapp.com",
 	],
@@ -79,8 +79,12 @@ const contentsCollection = database.collection("contents");
 app.post("/jwt", async(req, res) => {
 	const method = req.query.method;
 	const userCred = req.body;
-	const token = jwt.sign(userCred, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" })
 	if(method === "login") {
+		const options = { projection: { role: 1, _id: 0 } }
+		const role = await usersCollection.findOne(userCred, options);
+		const userInfo = { email: userCred.email, role: role?.role || "user" }
+		const token = jwt.sign(userInfo, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" })
+		
 		res.cookie("token", token, {
 			httpOnly: true,
 			secure: true,
@@ -137,7 +141,13 @@ app.get("/book/:id", async(req, res) => {
 	res.send(book);
 })
 
-app.patch("/book/:id", async(req, res) => { // Update book
+app.patch("/book/:id", verifyToken, async(req, res) => { // Update book
+	// Verify if the user have privilage to update book
+	console.log(req.user);
+	if(req.user.role !== "librarian") {
+		return res.status(403).send({ message: "forbidden" })
+	}
+	
 	const id = req.params.id;
 	const updatedBook = req.body;
 	const query = { _id: new ObjectId(id) };
@@ -145,8 +155,9 @@ app.patch("/book/:id", async(req, res) => { // Update book
 	const result = await booksCollection.updateOne(query, update);
 	res.send(result);
 }) 
-
-app.get("/books", verifyToken, async(req, res) => { // Get all books
+// Get all books
+app.get("/books", verifyToken, async(req, res) => { 
+	console.log(req.user);
 	const filter = req.query.filter;
 	if(req.query.email !== req.user.email) {
 		return res.status(401).send({ message: "unauthorized" })
@@ -184,9 +195,10 @@ app.get("/books/:category", async(req, res) => {
 })
 
 app.post("/books", verifyToken, async(req, res) => { // Add a book
-	if(req.query.email !== req.user.email) {
+	if(req.user.email !== req.query.email) {
 		return res.status(401).send({ message: "unauthorized" });
 	}
+	
 	const newBook = req.body;
 	const result = await booksCollection.insertOne(newBook);
 	res.send(result);
