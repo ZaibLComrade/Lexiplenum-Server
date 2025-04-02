@@ -27,7 +27,7 @@ const database = client.db('lexiplenum')
 app.use(express.json());
 app.use(cors({
 	origin: [
-		// "http://localhost:5173",
+		"http://localhost:5173",
 		"https://lexiplenum.web.app",
 		"https://lexiplenum.firebaseapp.com",
 	],
